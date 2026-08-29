@@ -671,7 +671,8 @@
       </div>
 
       <div class="form-panel">
-        <form id="contestForm" novalidate>
+        <!-- added onsubmit="return false;" to strictly stop browser reloads -->
+        <form id="contestForm" onsubmit="return false;" novalidate>
           <div class="form-grid">
             <div class="field">
               <label for="fullName">Full name</label>
@@ -837,7 +838,10 @@ function validate(data) {
 }
 
 form.addEventListener("submit", async (e) => {
+  // Prevent default reload behavior immediately
   e.preventDefault();
+  e.stopPropagation();
+
   clearErrors();
   statusEl.textContent = "";
   statusEl.className = "form-status";
@@ -853,7 +857,7 @@ form.addEventListener("submit", async (e) => {
   if (!validate(data)) {
     statusEl.textContent = "Please fix the highlighted fields.";
     statusEl.className = "form-status error";
-    return;
+    return false;
   }
 
   submitBtn.disabled = true;
@@ -879,6 +883,7 @@ form.addEventListener("submit", async (e) => {
       throw insertError;
     }
 
+    // Hide form & reveal success panel
     form.style.display = "none";
     successCard.classList.add("show");
     statusEl.textContent = "";
@@ -890,6 +895,8 @@ form.addEventListener("submit", async (e) => {
   } finally {
     submitBtn.disabled = false;
   }
+
+  return false;
 });
 
 resetBtn.addEventListener("click", (e) => {
