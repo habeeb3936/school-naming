@@ -731,4 +731,204 @@
       <div class="terms-list">
         <details open>
           <summary>Who can participate?</summary>
-          <p class="body">The contest is open to current students, p
+          <p class="body">The contest is open to current students, parents, staff, alumni, and members of the wider community.</p>
+        </details>
+        <details>
+          <summary>How is the winner chosen?</summary>
+          <p class="body">A naming committee formed by the school will review all eligible entries and select one winning name based on originality, meaning, and suitability.</p>
+        </details>
+        <details>
+          <summary>When and how is the prize paid?</summary>
+          <p class="body">The ₹5,000 prize will be transferred to the winner within 15 working days of the announcement, via bank transfer or UPI.</p>
+        </details>
+        <details>
+          <summary>Can the school modify a submitted name?</summary>
+          <p class="body">Yes. The committee may make minor adjustments to spelling or phrasing to the winning entry before final adoption.</p>
+        </details>
+        <details>
+          <summary>What happens to entries that aren't selected?</summary>
+          <p class="body">Non-winning entries will not be used or published, and personal details will be kept confidential and used only for contest purposes.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="brand-mark">S</div>
+        Name Our School
+      </div>
+      <div class="footer-links">
+        <a href="#rules">Guidelines</a>
+        <a href="#terms">Terms</a>
+        <a href="mailto:contact@yourschool.edu">Contact us</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Your School Name. All rights reserved.</span>
+      <span>Built for the International School Naming Contest</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ============================================================
+   SUPABASE CONFIGURATION
+   Replace these two values with your own project's credentials.
+   Find them in: Supabase Dashboard → Project Settings → API
+   ============================================================ */
+const SUPABASE_URL = "https://zuzjasvbkjxmqofvfifg.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp1emphc3Via2p4bXFvZnZmaWZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5ODE0MTQsImV4cCI6MjEwMzU1NzQxNH0.uKTwdTT3CYSH7lYW_8g8EvPHqJP-ELg0NJydCDImkMk";
+
+let supabaseClient = null;
+try {
+  if (SUPABASE_URL.startsWith("http") && SUPABASE_ANON_KEY.length > 10) {
+    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+} catch (e) {
+  console.warn("Supabase not configured yet:", e);
+}
+
+/* ---------- Hero plaque: cycle through sample name suggestions ---------- */
+const sampleNames = ["Your Name Here", "Everbright International", "Riverstone Academy", "Northlight School", "Horizon International"];
+let plaqueIdx = 0;
+const plaqueEl = document.getElementById("plaqueName");
+setInterval(() => {
+  plaqueIdx = (plaqueIdx + 1) % sampleNames.length;
+  plaqueEl.innerHTML = sampleNames[plaqueIdx] + '<span class="caret"></span>';
+}, 2600);
+
+/* ---------- Form validation & submission ---------- */
+const form = document.getElementById("contestForm");
+const statusEl = document.getElementById("formStatus");
+const submitBtn = document.getElementById("submitBtn");
+const successCard = document.getElementById("successCard");
+const resetBtn = document.getElementById("resetBtn");
+
+const fields = ["fullName", "email", "phone", "proposedName", "reason"];
+
+function clearErrors() {
+  fields.forEach(f => {
+    document.getElementById(f).classList.remove("invalid");
+    document.getElementById("err-" + f).textContent = "";
+  });
+}
+
+function setError(field, message) {
+  document.getElementById(field).classList.add("invalid");
+  document.getElementById("err-" + field).textContent = message;
+}
+
+function validate(data) {
+  let valid = true;
+  if (!data.fullName || data.fullName.trim().length < 2) {
+    setError("fullName", "Please enter your full name.");
+    valid = false;
+  }
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRe.test(data.email || "")) {
+    setError("email", "Please enter a valid email address.");
+    valid = false;
+  }
+  const phoneRe = /^[0-9]{10}$/;
+  if (!phoneRe.test((data.phone || "").replace(/\D/g, ""))) {
+    setError("phone", "Please enter a valid 10-digit phone number.");
+    valid = false;
+  }
+  if (!data.proposedName || data.proposedName.trim().length < 2) {
+    setError("proposedName", "Please suggest a name.");
+    valid = false;
+  }
+  if (!data.reason || data.reason.trim().length < 10) {
+    setError("reason", "Please write a short reason (at least a sentence).");
+    valid = false;
+  }
+  return valid;
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  clearErrors();
+  statusEl.textContent = "";
+  statusEl.className = "form-status";
+
+  const data = {
+    fullName: document.getElementById("fullName").value.trim(),
+    email: document.getElementById("email").value.trim(),
+    phone: document.getElementById("phone").value.trim(),
+    proposedName: document.getElementById("proposedName").value.trim(),
+    reason: document.getElementById("reason").value.trim(),
+  };
+
+  if (!validate(data)) {
+    statusEl.textContent = "Please fix the highlighted fields.";
+    statusEl.className = "form-status error";
+    return;
+  }
+
+  submitBtn.disabled = true;
+  statusEl.textContent = "Submitting your entry...";
+  statusEl.className = "form-status loading";
+
+  try {
+    if (!supabaseClient) {
+      throw new Error("Supabase is not configured yet. Add your project URL and anon key in the script.");
+    }
+
+    // Prevent duplicate submissions from the same email.
+    // This calls a database function that returns only true/false —
+    // it does NOT expose any submission data to the public site,
+    // unlike a direct table read would.
+    const { data: alreadyExists, error: checkError } = await supabaseClient
+      .rpc("email_exists", { check_email: data.email });
+
+    if (checkError) throw checkError;
+
+    if (alreadyExists) {
+      statusEl.textContent = "This email has already submitted an entry.";
+      statusEl.className = "form-status error";
+      submitBtn.disabled = false;
+      return;
+    }
+
+    const { error: insertError } = await supabaseClient
+      .from("submissions")
+      .insert([{
+        full_name: data.fullName,
+        email: data.email,
+        phone: data.phone,
+        proposed_name: data.proposedName,
+        reason: data.reason,
+        submitted_at: new Date().toISOString()
+      }]);
+
+    if (insertError) throw insertError;
+
+    form.style.display = "none";
+    successCard.classList.add("show");
+    statusEl.textContent = "";
+
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = err.message || "Something went wrong. Please try again.";
+    statusEl.className = "form-status error";
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+
+resetBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  form.reset();
+  clearErrors();
+  form.style.display = "block";
+  successCard.classList.remove("show");
+  statusEl.textContent = "";
+});
+</script>
+
+</body>
+</html>
