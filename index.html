@@ -67,7 +67,6 @@
     padding:0 24px;
   }
 
-  /* ---------- Header ---------- */
   header{
     position:sticky;
     top:0;
@@ -152,7 +151,6 @@
 
   .btn-sm{padding:9px 18px;font-size:0.85rem;}
 
-  /* ---------- Hero ---------- */
   .hero{
     padding:96px 0 80px;
     position:relative;
@@ -212,7 +210,6 @@
   }
   .hero-meta .label{font-size:0.78rem;color:var(--slate);}
 
-  /* Engraved nameplate */
   .plaque-wrap{
     display:flex;
     align-items:center;
@@ -293,7 +290,6 @@
     color:rgba(250,248,243,0.4);
   }
 
-  /* ---------- Shared Sections ---------- */
   section{padding:76px 0;}
 
   .section-head{
@@ -308,7 +304,6 @@
 
   .section-head p{color:var(--slate);margin-top:12px;font-size:1.02rem;}
 
-  /* ---------- Prize Strip ---------- */
   .prize-strip{
     background:var(--navy);
     color:var(--cream);
@@ -340,7 +335,6 @@
 
   .prize-strip .desc{max-width:420px;color:rgba(250,248,243,0.75);font-size:0.95rem;}
 
-  /* ---------- Rules ---------- */
   .rules-grid{
     display:grid;
     grid-template-columns:repeat(3,1fr);
@@ -367,7 +361,6 @@
   .rule-card h3{font-size:1.08rem;margin-bottom:8px;}
   .rule-card p{color:var(--slate);font-size:0.92rem;}
 
-  /* ---------- Form ---------- */
   .form-panel{
     background:var(--paper);
     border-radius:var(--radius-lg);
@@ -452,7 +445,6 @@
     transform:none !important;
   }
 
-  /* Success state */
   .success-card{
     display:none;
     text-align:center;
@@ -471,7 +463,6 @@
   .success-card h3{margin-bottom:8px;}
   .success-card p{color:var(--slate);font-size:0.95rem;}
 
-  /* ---------- Terms ---------- */
   .terms-list{
     display:flex;
     flex-direction:column;
@@ -505,7 +496,6 @@
   .terms-list details[open] summary::after{transform:rotate(45deg);}
   .terms-list .body{margin-top:12px;color:var(--slate);font-size:0.92rem;}
 
-  /* ---------- Footer ---------- */
   footer{
     background:var(--navy);
     color:rgba(250,248,243,0.7);
@@ -764,7 +754,8 @@
 </footer>
 
 <script>
-const SUPABASE_URL = "https://zuzjasvbkjxmqofvfifg.supabase.co";
+// EXACT CORRECT URL AND ANON KEY
+const SUPABASE_URL = "https://zuzjasubkjxmqofvfifg.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp1emphc3Via2p4bXFvZnZmaWZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5ODE0MTQsImV4cCI6MjEwMzU1NzQxNH0.uKTwdTT3CYSH7lYW_8g8EvPHqJP-ELg0NJydCDImkMk";
 
 let supabaseClient = null;
@@ -866,28 +857,58 @@ async function handleFormSubmit(e) {
   statusEl.className = "form-status loading";
 
   try {
-    if (!supabaseClient) {
-      throw new Error("Supabase client is not loaded.");
+    let success = false;
+
+    // Method 1: Standard Supabase Client call
+    if (supabaseClient) {
+      const { error: insertError } = await supabaseClient
+        .from("submissions")
+        .insert([{
+          full_name: data.fullName,
+          email: data.email,
+          phone: data.phone,
+          proposed_name: data.proposedName,
+          reason: data.reason
+        }]);
+
+      if (!insertError) {
+        success = true;
+      } else {
+        console.warn("Client insert error, attempting REST fallback:", insertError);
+      }
     }
 
-    const { error: insertError } = await supabaseClient
-      .from("submissions")
-      .insert([{
-        full_name: data.fullName,
-        email: data.email,
-        phone: data.phone,
-        proposed_name: data.proposedName,
-        reason: data.reason
-      }]);
+    // Method 2: Direct REST Fetch fallback (handles local file CORS issues)
+    if (!success) {
+      const restResponse = await fetch(`${SUPABASE_URL}/rest/v1/submissions`, {
+        method: "POST",
+        headers: {
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify({
+          full_name: data.fullName,
+          email: data.email,
+          phone: data.phone,
+          proposed_name: data.proposedName,
+          reason: data.reason
+        })
+      });
 
-    if (insertError) throw insertError;
+      if (!restResponse.ok) {
+        const errDetails = await restResponse.text();
+        throw new Error(`Server returned status ${restResponse.status}: ${errDetails}`);
+      }
+    }
 
     form.style.display = "none";
     successCard.classList.add("show");
     statusEl.textContent = "";
 
   } catch (err) {
-    console.error("Supabase Error:", err);
+    console.error("Submission Error:", err);
     statusEl.textContent = err.message || "Failed to submit entry. Please try again.";
     statusEl.className = "form-status error";
   } finally {
