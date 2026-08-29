@@ -671,7 +671,6 @@
       </div>
 
       <div class="form-panel">
-        <!-- added onsubmit="return false;" to strictly stop browser reloads -->
         <form id="contestForm" onsubmit="return false;" novalidate>
           <div class="form-grid">
             <div class="field">
@@ -703,7 +702,7 @@
 
           <div class="form-footer">
             <span class="form-status" id="formStatus"></span>
-            <button type="submit" class="btn btn-primary" id="submitBtn">Submit entry</button>
+            <button type="button" class="btn btn-primary" id="submitBtn" onclick="handleFormSubmit(event)">Submit entry</button>
           </div>
         </form>
 
@@ -775,8 +774,10 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 let supabaseClient = null;
 try {
-  if (SUPABASE_URL.startsWith("http") && SUPABASE_ANON_KEY.length > 10) {
+  if (typeof supabase !== 'undefined') {
     supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } else {
+    console.error("Supabase SDK script failed to load.");
   }
 } catch (e) {
   console.warn("Supabase initialization error:", e);
@@ -786,8 +787,10 @@ const sampleNames = ["Your Name Here", "Everbright International", "Riverstone A
 let plaqueIdx = 0;
 const plaqueEl = document.getElementById("plaqueName");
 setInterval(() => {
-  plaqueIdx = (plaqueIdx + 1) % sampleNames.length;
-  plaqueEl.innerHTML = sampleNames[plaqueIdx] + '<span class="caret"></span>';
+  if (plaqueEl) {
+    plaqueIdx = (plaqueIdx + 1) % sampleNames.length;
+    plaqueEl.innerHTML = sampleNames[plaqueIdx] + '<span class="caret"></span>';
+  }
 }, 2600);
 
 const form = document.getElementById("contestForm");
@@ -800,14 +803,18 @@ const fields = ["fullName", "email", "phone", "proposedName", "reason"];
 
 function clearErrors() {
   fields.forEach(f => {
-    document.getElementById(f).classList.remove("invalid");
-    document.getElementById("err-" + f).textContent = "";
+    const el = document.getElementById(f);
+    const errEl = document.getElementById("err-" + f);
+    if (el) el.classList.remove("invalid");
+    if (errEl) errEl.textContent = "";
   });
 }
 
 function setError(field, message) {
-  document.getElementById(field).classList.add("invalid");
-  document.getElementById("err-" + field).textContent = message;
+  const el = document.getElementById(field);
+  const errEl = document.getElementById("err-" + field);
+  if (el) el.classList.add("invalid");
+  if (errEl) errEl.textContent = message;
 }
 
 function validate(data) {
@@ -830,17 +837,18 @@ function validate(data) {
     setError("proposedName", "Please suggest a name.");
     valid = false;
   }
-  if (!data.reason || data.reason.trim().length < 10) {
-    setError("reason", "Please write a short reason (at least a sentence).");
+  if (!data.reason || data.reason.trim().length < 5) {
+    setError("reason", "Please write a reason.");
     valid = false;
   }
   return valid;
 }
 
-form.addEventListener("submit", async (e) => {
-  // Prevent default reload behavior immediately
-  e.preventDefault();
-  e.stopPropagation();
+async function handleFormSubmit(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
 
   clearErrors();
   statusEl.textContent = "";
@@ -866,7 +874,7 @@ form.addEventListener("submit", async (e) => {
 
   try {
     if (!supabaseClient) {
-      throw new Error("Supabase client is not initialized.");
+      throw new Error("Supabase client is not loaded properly.");
     }
 
     const { error: insertError } = await supabaseClient
@@ -883,13 +891,12 @@ form.addEventListener("submit", async (e) => {
       throw insertError;
     }
 
-    // Hide form & reveal success panel
     form.style.display = "none";
     successCard.classList.add("show");
     statusEl.textContent = "";
 
   } catch (err) {
-    console.error("Supabase Error Details:", err);
+    console.error("Supabase Submission Error:", err);
     statusEl.textContent = err.message || "Failed to submit entry. Please try again.";
     statusEl.className = "form-status error";
   } finally {
@@ -897,16 +904,18 @@ form.addEventListener("submit", async (e) => {
   }
 
   return false;
-});
+}
 
-resetBtn.addEventListener("click", (e) => {
-  e.preventDefault();
-  form.reset();
-  clearErrors();
-  form.style.display = "block";
-  successCard.classList.remove("show");
-  statusEl.textContent = "";
-});
+if (resetBtn) {
+  resetBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    form.reset();
+    clearErrors();
+    form.style.display = "block";
+    successCard.classList.remove("show");
+    statusEl.textContent = "";
+  });
+}
 </script>
 
 </body>
